@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
-private val singleWordRegex = Regex("^[\\p{L}][\\p{L}'-]{0,29}$")
+private val singleWordRegex = Regex("^\\p{L}[\\p{L}'-]{0,29}$")
 
 @RestController
 @RequestMapping("/api/zyad/jokes")
