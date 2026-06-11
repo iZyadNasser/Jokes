@@ -15,10 +15,12 @@ class JokeServiceTest {
 
         assertThat(response.word).isEqualTo("لبن")
         assertThat(response.joke).isEqualTo("مرة واحد شرب لبن سخن قال للبقرة استني برة")
-        assertThat(llmClient.prompts.first()).contains("اكتب نكتة مصرية أصلية قصيرة عن الكلمة")
-        assertThat(llmClient.prompts.first()).contains("لازم تكون نكتة مفهومة وليها إعداد واضح وقفلة واضحة")
+        assertThat(llmClient.prompts.first()).contains("Prefer recall over invention")
+        assertThat(llmClient.prompts.first()).contains("real Egyptian jokes, common Egyptian joke patterns")
+        assertThat(llmClient.prompts.first()).contains("one or two complete sentences only")
+        assertThat(llmClient.prompts.first()).contains("clear setup and a clear punchline")
         assertThat(llmClient.prompts.first()).contains("لا توجد نكت سابقة")
-        assertThat(llmClient.prompts.last()).contains("مهمتك الوحيدة تحويل النكتة للعامية المصرية الطبيعية الصريحة")
+        assertThat(llmClient.prompts.last()).contains("convert the joke to natural spoken Egyptian Arabic")
     }
 
     @Test
@@ -68,8 +70,8 @@ class JokeServiceTest {
 
         assertThat(response.joke).isEqualTo("واحد سخن اللبن قوي فطلب من البقرة تستنى برة")
         assertThat(llmClient.prompts).hasSize(10)
-        assertThat(llmClient.prompts[8]).contains("كل المحاولات الجديدة اتكررت")
-        assertThat(llmClient.prompts[8]).contains("غيّر ألفاظ بسيطة فقط")
+        assertThat(llmClient.prompts[8]).contains("All new attempts repeated previous jokes")
+        assertThat(llmClient.prompts[8]).contains("lightly rephrase it")
     }
 
     @Test
@@ -87,7 +89,7 @@ class JokeServiceTest {
 
         assertThat(response.joke).isEqualTo("اللبن راح المدرسة عشان كان عايز يتعلم")
         assertThat(llmClient.prompts).hasSize(3)
-        assertThat(llmClient.prompts.last()).contains("لسه فيها ألفاظ مش مصرية")
+        assertThat(llmClient.prompts.last()).contains("still contains non-Egyptian wording")
     }
 
     private class CapturingLlmClient(

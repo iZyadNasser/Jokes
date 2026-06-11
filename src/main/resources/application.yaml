@@ -5,6 +5,9 @@ spring:
 server:
   port: ${PORT:8080}
 
+llm:
+  provider: ${LLM_PROVIDER:groq}
+
 gemini:
   api-key: ${GEMINI_API_KEY:}
   base-url: https://generativelanguage.googleapis.com
@@ -24,6 +27,12 @@ qwen:
   base-url: https://openrouter.ai/api/v1
   primary-model: qwen/qwen3-32b
   secondary-model: qwen/qwen3-8b
+
+puter:
+  auth-token: ${PUTER_AUTH_TOKEN:}
+  base-url: https://api.puter.com
+  primary-model: deepseek/deepseek-v4-flash
+  secondary-model: deepseek/deepseek-v4-pro
 
 management:
   endpoints:

@@ -3,14 +3,12 @@ package com.zyad.jokes.client
 import com.zyad.jokes.client.model.LlmResponse
 import com.zyad.jokes.config.GroqProperties
 import org.slf4j.LoggerFactory
-import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 
 @Component
-@Primary
 class GroqClient(
     private val restClient: RestClient,
     private val properties: GroqProperties
