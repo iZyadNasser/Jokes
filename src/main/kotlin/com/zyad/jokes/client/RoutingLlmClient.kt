@@ -1,6 +1,7 @@
 package com.zyad.jokes.client
 
 import com.zyad.jokes.config.LlmProperties
+import com.zyad.jokes.service.GeminiClient
 import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Component
 
@@ -16,9 +17,6 @@ class RoutingLlmClient(
 
     override fun generateJoke(prompt: String): String =
         clientForProvider().generateJoke(prompt)
-
-    override fun generateJoke(request: LlmRequest): String =
-        clientForProvider().generateJoke(request)
 
     private fun clientForProvider(): LlmClient =
         when (properties.provider.trim().lowercase()) {

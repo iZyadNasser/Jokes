@@ -16,10 +16,7 @@ class GroqClient(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun generateJoke(prompt: String): String =
-        generateJoke(LlmRequest(userPrompt = prompt))
-
-    override fun generateJoke(request: LlmRequest): String {
+    override fun generateJoke(prompt: String): String {
 
         val models = listOf(
             properties.primaryModel,
@@ -36,7 +33,7 @@ class GroqClient(
 
                 val result = callGroq(
                     model = model,
-                    request = request
+                    prompt = prompt
                 )
 
                 logger.info("Groq model succeeded: {}", model)
@@ -59,13 +56,18 @@ class GroqClient(
 
     private fun callGroq(
         model: String,
-        request: LlmRequest
+        prompt: String
     ): String {
 
         val requestBody = mapOf(
             "model" to model,
-            "messages" to messagesFor(request),
-            "temperature" to request.temperature
+            "messages" to listOf(
+                mapOf(
+                    "role" to "user",
+                    "content" to prompt
+                )
+            ),
+            "temperature" to 0.8
         )
 
         val response = restClient.post()
@@ -87,23 +89,4 @@ class GroqClient(
             ?.trim()
             ?: throw RuntimeException("No text returned")
     }
-
-    private fun messagesFor(request: LlmRequest): List<Map<String, String>> =
-        buildList {
-            if (!request.systemPrompt.isNullOrBlank()) {
-                add(
-                    mapOf(
-                        "role" to "system",
-                        "content" to request.systemPrompt.trim()
-                    )
-                )
-            }
-
-            add(
-                mapOf(
-                    "role" to "user",
-                    "content" to request.userPrompt.trim()
-                )
-            )
-        }
 }
