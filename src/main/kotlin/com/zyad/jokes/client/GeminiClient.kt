@@ -17,7 +17,10 @@ class GeminiClient(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun generateJoke(prompt: String): String {
+    override fun generateJoke(prompt: String): String =
+        generateJoke(LlmRequest(userPrompt = prompt))
+
+    override fun generateJoke(request: LlmRequest): String {
 
         if (properties.apiKey.isBlank()) {
             throw IllegalStateException("GEMINI_API_KEY is missing")
@@ -39,7 +42,7 @@ class GeminiClient(
 
                 val joke = callGemini(
                     model = model,
-                    prompt = prompt
+                    request = request
                 )
 
                 logger.info("Success using model: {}", model)
@@ -65,25 +68,33 @@ class GeminiClient(
 
     private fun callGemini(
         model: String,
-        prompt: String
+        request: LlmRequest
     ): String {
 
-        val requestBody = mapOf(
+        val requestBody = mutableMapOf<String, Any>(
             "contents" to listOf(
                 mapOf(
                     "parts" to listOf(
                         mapOf(
-                            "text" to prompt
+                            "text" to request.userPrompt.trim()
                         )
                     )
                 )
             ),
             "generationConfig" to mapOf(
-                "temperature" to 0.8,
+                "temperature" to request.temperature,
                 "topP" to 0.9,
-                "maxOutputTokens" to 120
+                "maxOutputTokens" to request.maxOutputTokens
             )
         )
+
+        if (!request.systemPrompt.isNullOrBlank()) {
+            requestBody["systemInstruction"] = mapOf(
+                "parts" to listOf(
+                    mapOf("text" to request.systemPrompt.trim())
+                )
+            )
+        }
 
         val response = restClient.post()
             .uri(

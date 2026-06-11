@@ -23,7 +23,10 @@ class PuterClient(
             false
         )
 
-    override fun generateJoke(prompt: String): String {
+    override fun generateJoke(prompt: String): String =
+        generateJoke(LlmRequest(userPrompt = prompt))
+
+    override fun generateJoke(request: LlmRequest): String {
         if (properties.authToken.isBlank()) {
             throw IllegalStateException(
                 "PUTER_AUTH_TOKEN is missing. Puter.js can run without a developer key in the browser, " +
@@ -44,7 +47,7 @@ class PuterClient(
 
                 val result = callPuter(
                     model = model,
-                    prompt = prompt
+                    request = request
                 )
 
                 logger.info("Puter model succeeded: {}", model)
@@ -58,7 +61,7 @@ class PuterClient(
         throw lastException ?: RuntimeException("All Puter models failed")
     }
 
-    private fun callPuter(model: String, prompt: String): String {
+    private fun callPuter(model: String, request: LlmRequest): String {
         val requestBody = mapOf(
             "interface" to "puter-chat-completion",
             "driver" to "ai-chat",
@@ -66,12 +69,10 @@ class PuterClient(
             "test_mode" to false,
             "auth_token" to properties.authToken,
             "args" to mapOf(
-                "messages" to listOf(
-                    mapOf("content" to prompt)
-                ),
+                "messages" to messagesFor(request),
                 "model" to model,
-                "temperature" to 0.85,
-                "max_tokens" to 150,
+                "temperature" to request.temperature,
+                "max_tokens" to request.maxOutputTokens,
                 "stream" to false
             )
         )
@@ -159,6 +160,25 @@ class PuterClient(
 
         return ""
     }
+
+    private fun messagesFor(request: LlmRequest): List<Map<String, String>> =
+        buildList {
+            if (!request.systemPrompt.isNullOrBlank()) {
+                add(
+                    mapOf(
+                        "role" to "system",
+                        "content" to request.systemPrompt.trim()
+                    )
+                )
+            }
+
+            add(
+                mapOf(
+                    "role" to "user",
+                    "content" to request.userPrompt.trim()
+                )
+            )
+        }
 
     private data class PuterDriverResponse(
         val success: Boolean? = null,

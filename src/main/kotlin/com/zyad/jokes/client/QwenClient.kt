@@ -17,7 +17,10 @@ class QwenClient(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun generateJoke(prompt: String): String {
+    override fun generateJoke(prompt: String): String =
+        generateJoke(LlmRequest(userPrompt = prompt))
+
+    override fun generateJoke(request: LlmRequest): String {
 
         val models = listOf(
             properties.primaryModel,
@@ -32,7 +35,7 @@ class QwenClient(
 
                 val result = callQwen(
                     model = model,
-                    prompt = prompt
+                    request = request
                 )
 
                 logger.info("Qwen model succeeded: {}", model)
@@ -47,18 +50,13 @@ class QwenClient(
         throw lastException ?: RuntimeException("All Qwen models failed")
     }
 
-    private fun callQwen(model: String, prompt: String): String {
+    private fun callQwen(model: String, request: LlmRequest): String {
 
         val requestBody = mapOf(
             "model" to model,
-            "messages" to listOf(
-                mapOf(
-                    "role" to "user",
-                    "content" to prompt
-                )
-            ),
-            "temperature" to 0.85,
-            "max_tokens" to 150,           // Joke is short, no need for large output
+            "messages" to messagesFor(request),
+            "temperature" to request.temperature,
+            "max_tokens" to request.maxOutputTokens,
             "top_p" to 0.9
         )
 
@@ -78,4 +76,23 @@ class QwenClient(
             ?.trim()
             ?: throw RuntimeException("No content returned from Qwen")
     }
+
+    private fun messagesFor(request: LlmRequest): List<Map<String, String>> =
+        buildList {
+            if (!request.systemPrompt.isNullOrBlank()) {
+                add(
+                    mapOf(
+                        "role" to "system",
+                        "content" to request.systemPrompt.trim()
+                    )
+                )
+            }
+
+            add(
+                mapOf(
+                    "role" to "user",
+                    "content" to request.userPrompt.trim()
+                )
+            )
+        }
 }

@@ -17,6 +17,9 @@ class RoutingLlmClient(
     override fun generateJoke(prompt: String): String =
         clientForProvider().generateJoke(prompt)
 
+    override fun generateJoke(request: LlmRequest): String =
+        clientForProvider().generateJoke(request)
+
     private fun clientForProvider(): LlmClient =
         when (properties.provider.trim().lowercase()) {
             "gemini" -> geminiClient
