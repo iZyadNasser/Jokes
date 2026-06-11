@@ -22,18 +22,6 @@ groq:
   primary-model: llama-3.3-70b-versatile
   secondary-model: llama-3.1-8b-instant
 
-qwen:
-  api-key: ${QWEN_API_KEY:}
-  base-url: https://openrouter.ai/api/v1
-  primary-model: qwen/qwen3-32b
-  secondary-model: qwen/qwen3-8b
-
-puter:
-  auth-token: ${PUTER_AUTH_TOKEN:}
-  base-url: https://api.puter.com
-  primary-model: deepseek/deepseek-v4-flash
-  secondary-model: deepseek/deepseek-v4-pro
-
 management:
   endpoints:
     web:
