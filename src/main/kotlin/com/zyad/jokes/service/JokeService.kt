@@ -1,8 +1,6 @@
 package com.zyad.jokes.service
 
 import com.zyad.jokes.client.LlmClient
-import com.zyad.jokes.client.WebSearchClient
-import com.zyad.jokes.client.model.SearchResult
 import com.zyad.jokes.web.JokeResponse
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -10,30 +8,26 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class JokeService(
-    private val llmClient: LlmClient,
-    private val webSearchClient: WebSearchClient
+    private val llmClient: LlmClient
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val recentJokesByWord = ConcurrentHashMap<String, MutableList<String>>()
 
     fun createJoke(word: String): JokeResponse {
-        val searchResults = webSearchClient.searchEgyptianJokes(word)
-        logSearchResults(word, searchResults)
-
         val previousJokes = previousJokesFor(word)
         val rejectedJokes = mutableListOf<String>()
 
         repeat(MAX_GENERATION_ATTEMPTS) { attempt ->
-            val prompt = buildPrompt(
-                word = word,
-                searchResults = selectPromptResults(word, searchResults),
-                previousJokes = previousJokes + rejectedJokes,
-                attempt = attempt + 1
-            )
             val joke = polishEgyptianArabic(
                 word = word,
-                joke = llmClient.generateJoke(prompt)
+                joke = llmClient.generateJoke(
+                    buildPrompt(
+                        word = word,
+                        previousJokes = previousJokes + rejectedJokes,
+                        attempt = attempt + 1
+                    )
+                )
             )
             val repeatedJoke = isRepeatedJoke(joke, previousJokes + rejectedJokes)
 
@@ -59,21 +53,17 @@ class JokeService(
             }
         }
 
-        val fallbackPrompt = buildRephrasePrompt(
-            word = word,
-            searchResults = selectPromptResults(word, searchResults),
-            previousJokes = previousJokes + rejectedJokes
-        )
         val fallback = polishEgyptianArabic(
             word = word,
-            joke = llmClient.generateJoke(fallbackPrompt)
+            joke = llmClient.generateJoke(
+                buildRephrasePrompt(
+                    word = word,
+                    previousJokes = previousJokes + rejectedJokes
+                )
+            )
         )
 
-        logger.info(
-            "Generated last-resort rephrased joke for word '{}': '{}'",
-            word,
-            fallback
-        )
+        logger.info("Generated last-resort rephrased joke for word '{}': '{}'", word, fallback)
 
         if (fallback.isNotBlank()) {
             rememberJoke(word, fallback)
@@ -87,113 +77,62 @@ class JokeService(
 
     private fun buildPrompt(
         word: String,
-        searchResults: List<SearchResult>,
         previousJokes: List<String>,
         attempt: Int
     ): String {
-        val resultsText = searchResults
-            .take(MAX_SEARCH_RESULTS_IN_PROMPT)
-            .mapIndexed { index, result ->
-                """
-                نتيجة ${index + 1}
-                العنوان: ${result.title}
-                الرابط: ${result.url}
-                النص: ${result.content}
-                """.trimIndent()
-            }
-            .joinToString(separator = "\n\n")
-            .ifBlank { "لا توجد نتائج بحث مفيدة" }
-
-        val previousJokesText = previousJokes
-            .take(MAX_REMEMBERED_JOKES)
-            .joinToString(separator = "\n") { "- $it" }
-            .ifBlank { "لا توجد نكت سابقة" }
+        val previousJokesText = previousJokesText(previousJokes)
 
         return """
-            أنت محرر نكت مصرية.
+            أنت كاتب نكت مصرية محترف.
 
             الكلمة التي أدخلها المستخدم: $word
-            رقم المحاولة الحالي: $attempt
+            رقم المحاولة: $attempt
 
-            استخدم نتائج البحث كمصادر لنكت حقيقية أو أفكار نكت واضحة.
-            اختار نكتة واحدة من النتائج والتزم بفكرتها وقلبتها.
-            لا تخترع فكرة جديدة من غير أصل واضح في النتائج.
-            اختار نتيجة واحدة فقط من النتائج التي تحتوي على نكتة أو فكرة نكتة مفهومة عن الكلمة.
-            تجاهل أي نتيجة شكلها مقال أو تعريف أو كلام عام أو غير مضحك.
-            بعد الفلترة اختار عشوائيا من النتائج الصالحة فقط وليس من كل النتائج.
-            غير الكلمات بأقل قدر ممكن فقط لو محتاجة تتحول لعامية مصرية أو تبقى أوضح.
-            ممنوع تغير الإعداد أو القفلة أو سبب الضحك.
-            ممنوع تخلط بين أكثر من نتيجة لأن ده غالبا بيطلع كلام بلا معنى.
-            لو وجدت أكثر من نكتة صالحة لا تختار نفس النكت السابقة واختر نكتة أخرى من النتائج.
-            فضّل النكت القصيرة والواضحة والمرتبطة بالكلمة.
-            استبعد أي نكتة فيها عنصرية أو إهانة أو تنمر أو إيحاء جنسي أو ألفاظ خارجة أو سخرية من دين أو جنس أو جنسية أو مرض أو إعاقة.
-            لو النكتة طويلة اختصرها بدون تغيير الفكرة.
-            لازم الناتج النهائي يكون بالعامية المصرية فقط وبشكل طبيعي جدا كأن مصري بيحكيها لصاحبه.
-            لو النكتة الأصلية بالفصحى أو بلهجة عربية غير مصرية حولها بالكامل للعامية المصرية قبل الإخراج.
-            لو النكتة الأصلية بلغة غير العربية ترجمها وحولها بالكامل للعامية المصرية قبل الإخراج.
-            ممنوع تترك أي كلمة أو تركيب واضح من لهجة غير مصرية لو له بديل مصري طبيعي.
-            استخدم تعبيرات مصرية بسيطة عند الحاجة مثل مرة واحد ايه ده يا عم ده بتاع بس من غير حشو.
-            تأكد أن النكتة المختارة لها معنى وليست مجرد كلام بلا معنى.
-            النكتة لازم يكون فيها إعداد واضح وقفلة مفهومة.
-            اكتب نكتة واحدة فقط.
+            اكتب نكتة مصرية أصلية قصيرة عن الكلمة.
+            لازم النكتة تكون بالعامية المصرية فقط وبشكل طبيعي كأن مصري بيحكيها لصاحبه.
+            لازم تكون نكتة مفهومة وليها إعداد واضح وقفلة واضحة وسبب ضحك واضح.
+            قبل ما تكتب اختار في دماغك قالب واحد فقط من دول: سوء فهم بسيط، تلاعب لفظي بسيط، موقف يومي مصري، أو شخصنة الكلمة كأنها بني آدم.
+            لا تذكر القالب ولا تشرح النكتة.
+            خليك قريب من كلام الناس العادي وماتكتبش كلام عشوائي أو فلسفي أو غريب.
+            الكلمة لازم تكون محور النكتة أو تظهر فيها بوضوح.
+            النكتة جملة واحدة أو جملتين بالكتير.
+            لو الكلمة صعبة اعمل نكتة على صوت الكلمة أو معناها أو استخدامها اليومي.
+            ممنوع العنصرية أو الإهانة أو التنمر أو الإيحاء الجنسي أو الألفاظ الخارجة أو السخرية من دين أو جنس أو جنسية أو مرض أو إعاقة.
+            ممنوع الفصحى أو الشامي أو الخليجي أو المغربي أو الإنجليزي.
             لا تستخدم علامات ترقيم ولا تنصيص ولا أرقام ولا Markdown.
-            لا تكتب شرحا أو مقدمة أو مصادر.
-            لا تكرر أي نكتة من النكت السابقة التالية حتى لو كانت أفضل نتيجة:
+            لا تكتب مقدمة أو شرح أو مصادر.
+            لا تكرر أي نكتة من النكت السابقة التالية:
 
             النكت السابقة:
             $previousJokesText
 
-            نتائج البحث:
-            $resultsText
+            اكتب النكتة فقط.
         """.trimIndent()
     }
 
     private fun buildRephrasePrompt(
         word: String,
-        searchResults: List<SearchResult>,
         previousJokes: List<String>
     ): String {
-        val resultsText = searchResults
-            .take(MAX_SEARCH_RESULTS_IN_PROMPT)
-            .mapIndexed { index, result ->
-                """
-                نتيجة ${index + 1}
-                العنوان: ${result.title}
-                الرابط: ${result.url}
-                النص: ${result.content}
-                """.trimIndent()
-            }
-            .joinToString(separator = "\n\n")
-            .ifBlank { "لا توجد نتائج بحث مفيدة" }
-
-        val previousJokesText = previousJokes
-            .distinctBy { normalizeJoke(it) }
-            .take(MAX_REMEMBERED_JOKES)
-            .joinToString(separator = "\n") { "- $it" }
-            .ifBlank { "لا توجد نكت سابقة" }
+        val previousJokesText = previousJokesText(previousJokes)
 
         return """
-            أنت محرر نكت مصرية.
+            أنت كاتب نكت مصرية محترف.
 
             الكلمة التي أدخلها المستخدم: $word
 
-            حاولنا استخراج نكتة جديدة من نتائج البحث لكن النكت المناسبة خلصت أو اتكررت.
-            دي آخر محاولة فقط.
-            اختار نكتة آمنة من النكت السابقة أو من نتائج البحث وغيّر ألفاظ بسيطة فقط.
-            لازم تحافظ على نفس الفكرة والمعنى وأن تكون النكتة مفهومة.
-            لا تغير النكتة لشيء غير مرتبط بالكلمة.
-            لازم الناتج النهائي يكون بالعامية المصرية فقط وبشكل طبيعي جدا كأن مصري بيحكيها لصاحبه.
-            لو الأصل بالفصحى أو بلهجة غير مصرية أو بلغة غير عربية حوله بالكامل للعامية المصرية.
-            ممنوع تغير الإعداد أو القفلة أو سبب الضحك.
+            كل المحاولات الجديدة اتكررت.
+            اختار نكتة آمنة من النكت السابقة وغيّر ألفاظ بسيطة فقط حتى تبدو مختلفة شوية.
+            حافظ على نفس الفكرة ونفس القفلة ونفس سبب الضحك.
+            لازم الناتج يكون بالعامية المصرية فقط ومفهوم.
+            لا تجعل النكتة أطول ولا تضيف فكرة جديدة.
             لا تستخدم علامات ترقيم ولا تنصيص ولا أرقام ولا Markdown.
-            لا تكتب شرحا أو مقدمة أو مصادر.
-            اكتب نكتة واحدة فقط.
+            لا تكتب مقدمة أو شرح.
 
             النكت السابقة:
             $previousJokesText
 
-            نتائج البحث:
-            $resultsText
+            اكتب النكتة فقط.
         """.trimIndent()
     }
 
@@ -278,6 +217,13 @@ class JokeService(
         return repairedJoke.ifBlank { polishedJoke }
     }
 
+    private fun previousJokesText(previousJokes: List<String>): String =
+        previousJokes
+            .distinctBy { normalizeJoke(it) }
+            .take(MAX_REMEMBERED_JOKES)
+            .joinToString(separator = "\n") { "- $it" }
+            .ifBlank { "لا توجد نكت سابقة" }
+
     private fun previousJokesFor(word: String): List<String> {
         val history = recentJokesByWord[wordKey(word)] ?: return emptyList()
 
@@ -306,22 +252,6 @@ class JokeService(
         return previousJokes.any { normalizeJoke(it) == normalizedJoke }
     }
 
-    private fun selectPromptResults(word: String, searchResults: List<SearchResult>): List<SearchResult> {
-        val (likelyRelevantResults, otherResults) = searchResults
-            .filter { it.content.isNotBlank() }
-            .partition { isLikelyRelevantJokeResult(word, it) }
-
-        return (likelyRelevantResults.shuffled() + otherResults.shuffled())
-            .take(MAX_SEARCH_RESULTS_IN_PROMPT)
-    }
-
-    private fun isLikelyRelevantJokeResult(word: String, result: SearchResult): Boolean {
-        val text = "${result.title} ${result.content}".lowercase()
-        val normalizedWord = word.lowercase()
-
-        return text.contains(normalizedWord) && JOKE_RESULT_MARKERS.any { text.contains(it) }
-    }
-
     private fun normalizeJoke(joke: String): String =
         formatJoke(joke).lowercase()
 
@@ -336,34 +266,9 @@ class JokeService(
         }
     }
 
-    private fun logSearchResults(word: String, searchResults: List<SearchResult>) {
-        logger.info("Found {} search results for word: {}", searchResults.size, word)
-
-        searchResults.forEachIndexed { index, result ->
-            logger.info(
-                "Search result {} for word '{}': title='{}', url='{}', content='{}'",
-                index + 1,
-                word,
-                result.title.take(120),
-                result.url,
-                result.content.take(300)
-            )
-        }
-    }
-
     private companion object {
         const val MAX_GENERATION_ATTEMPTS = 3
         const val MAX_REMEMBERED_JOKES = 10
-        const val MAX_SEARCH_RESULTS_IN_PROMPT = 12
-        val JOKE_RESULT_MARKERS = listOf(
-            "نكت",
-            "نكتة",
-            "مضحك",
-            "ضحك",
-            "قفشة",
-            "افيه",
-            "إفيه"
-        )
         val NON_EGYPTIAN_DIALECT_MARKERS = listOf(
             "لماذا",
             "ماذا",
