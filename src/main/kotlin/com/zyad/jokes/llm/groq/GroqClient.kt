@@ -1,19 +1,17 @@
-package com.zyad.jokes.client
+package com.zyad.jokes.llm.groq
 
-import com.zyad.jokes.client.model.LlmResponse
-import com.zyad.jokes.config.QwenProperties
+import com.zyad.jokes.client.LlmClient
 import org.slf4j.LoggerFactory
-import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 
 @Component
-class QwenClient(
+class GroqClient(
     private val restClient: RestClient,
-    private val properties: QwenProperties
-) : LlmClient {
+    private val properties: GroqProperties
+): LlmClient {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -27,27 +25,38 @@ class QwenClient(
         var lastException: Exception? = null
 
         for (model in models) {
-            try {
-                logger.info("Trying Qwen model: {}", model)
 
-                val result = callQwen(
+            try {
+
+                logger.info("Trying Groq model: {}", model)
+
+                val result = callGroq(
                     model = model,
                     prompt = prompt
                 )
 
-                logger.info("Qwen model succeeded: {}", model)
+                logger.info("Groq model succeeded: {}", model)
+
                 return result
 
             } catch (ex: Exception) {
-                logger.warn("Qwen model failed: {}", model, ex)
+
+                logger.warn(
+                    "Groq model failed: {}",
+                    model
+                )
+
                 lastException = ex
             }
         }
 
-        throw lastException ?: RuntimeException("All Qwen models failed")
+        throw lastException ?: RuntimeException("All Groq models failed")
     }
 
-    private fun callQwen(model: String, prompt: String): String {
+    private fun callGroq(
+        model: String,
+        prompt: String
+    ): String {
 
         val requestBody = mapOf(
             "model" to model,
@@ -57,25 +66,26 @@ class QwenClient(
                     "content" to prompt
                 )
             ),
-            "temperature" to 0.85,
-            "max_tokens" to 150,
-            "top_p" to 0.9
+            "temperature" to 0.8
         )
 
         val response = restClient.post()
             .uri("${properties.baseUrl}/chat/completions")
-            .header("Authorization", "Bearer ${properties.apiKey}")
+            .header(
+                "Authorization",
+                "Bearer ${properties.apiKey}"
+            )
             .contentType(MediaType.APPLICATION_JSON)
             .body(requestBody)
             .retrieve()
-            .body<LlmResponse>()
-            ?: throw RuntimeException("Empty response from Qwen")
+            .body<GroqResponse>()
+            ?: throw RuntimeException("Empty response")
 
         return response.choices
             .firstOrNull()
             ?.message
             ?.content
             ?.trim()
-            ?: throw RuntimeException("No content returned from Qwen")
+            ?: throw RuntimeException("No text returned")
     }
 }

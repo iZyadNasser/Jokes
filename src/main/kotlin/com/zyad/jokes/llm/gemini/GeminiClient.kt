@@ -1,9 +1,7 @@
-package com.zyad.jokes.service
+package com.zyad.jokes.llm.gemini
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.zyad.jokes.client.LlmClient
-import com.zyad.jokes.client.model.GeminiResponse
-import com.zyad.jokes.config.GeminiProperties
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -130,9 +128,11 @@ class GeminiClient(
             normalizedModel.startsWith("gemini-3") -> mapOf(
                 "thinkingConfig" to mapOf("thinkingLevel" to "minimal")
             )
+
             normalizedModel.startsWith("gemini-2.5-flash") -> mapOf(
                 "thinkingConfig" to mapOf("thinkingBudget" to 0)
             )
+
             else -> emptyMap()
         }
     }

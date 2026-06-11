@@ -1,4 +1,4 @@
-package com.zyad.jokes.config
+package com.zyad.jokes.llm.gemini
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 

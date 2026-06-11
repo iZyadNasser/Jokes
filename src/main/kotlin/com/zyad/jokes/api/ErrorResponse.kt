@@ -1,4 +1,4 @@
-package com.zyad.jokes.web
+package com.zyad.jokes.api
 
 import java.time.Instant
 

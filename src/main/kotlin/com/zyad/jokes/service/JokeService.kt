@@ -1,7 +1,7 @@
 package com.zyad.jokes.service
 
 import com.zyad.jokes.client.LlmClient
-import com.zyad.jokes.web.JokeResponse
+import com.zyad.jokes.api.JokeResponse
 import org.springframework.stereotype.Service
 
 @Service

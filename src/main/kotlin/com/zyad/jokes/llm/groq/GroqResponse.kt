@@ -1,6 +1,6 @@
-package com.zyad.jokes.client.model
+package com.zyad.jokes.llm.groq
 
-data class LlmResponse(
+data class GroqResponse(
     val choices: List<Choice> = emptyList()
 ) {
     data class Choice(

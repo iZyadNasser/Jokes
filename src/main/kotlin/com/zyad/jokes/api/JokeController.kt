@@ -1,4 +1,4 @@
-package com.zyad.jokes.web
+package com.zyad.jokes.api
 
 import com.zyad.jokes.service.JokeService
 import org.springframework.http.ResponseEntity

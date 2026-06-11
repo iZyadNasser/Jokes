@@ -1,7 +1,8 @@
 package com.zyad.jokes.client
 
 import com.zyad.jokes.config.LlmProperties
-import com.zyad.jokes.service.GeminiClient
+import com.zyad.jokes.llm.gemini.GeminiClient
+import com.zyad.jokes.llm.groq.GroqClient
 import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Component
 
@@ -11,8 +12,6 @@ class RoutingLlmClient(
     private val properties: LlmProperties,
     private val geminiClient: GeminiClient,
     private val groqClient: GroqClient,
-    private val puterClient: PuterClient,
-    private val qwenClient: QwenClient
 ) : LlmClient {
 
     override fun generateJoke(prompt: String): String =
@@ -22,10 +21,8 @@ class RoutingLlmClient(
         when (properties.provider.trim().lowercase()) {
             "gemini" -> geminiClient
             "groq" -> groqClient
-            "puter" -> puterClient
-            "qwen" -> qwenClient
             else -> throw IllegalArgumentException(
-                "Unsupported LLM provider '${properties.provider}'. Use gemini, groq, puter, or qwen."
+                "Unsupported LLM provider '${properties.provider}'. Use gemini or groq."
             )
         }
 }

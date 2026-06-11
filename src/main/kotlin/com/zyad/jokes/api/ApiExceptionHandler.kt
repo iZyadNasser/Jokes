@@ -1,4 +1,4 @@
-package com.zyad.jokes.web
+package com.zyad.jokes.api
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

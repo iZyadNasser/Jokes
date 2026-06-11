@@ -1,4 +1,4 @@
-package com.zyad.jokes.client.model
+package com.zyad.jokes.llm.gemini
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
