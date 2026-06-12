@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.body
 
 @Component
 class GeminiClient(
@@ -61,24 +62,20 @@ class GeminiClient(
             ) + thinkingConfigFor(model)
         )
 
-        // 1. Get raw JSON response as String
         val rawJson = restClient.post()
             .uri("${properties.baseUrl}/v1beta/models/$model:generateContent?key=${properties.apiKey}")
             .contentType(MediaType.APPLICATION_JSON)
             .body(requestBody)
             .retrieve()
-            .body(String::class.java)
+            .body<String>()
             ?: throw RuntimeException("Empty response body from Gemini")
 
-        // 2. Log the raw response for debugging
         logger.debug("Gemini API raw response for model $model: $rawJson")
 
-        // 3. Check if the response contains an API error (non-200 embedded error)
         if (rawJson.contains("\"error\"")) {
             throw RuntimeException("Gemini API returned an error: $rawJson")
         }
 
-        // 4. Parse JSON into GeminiResponse with tolerant deserialization
         val geminiResponse = try {
             objectMapper.readValue(rawJson, GeminiResponse::class.java)
         } catch (e: Exception) {
@@ -88,7 +85,6 @@ class GeminiClient(
             )
         }
 
-        // 5. Validate candidates
         val candidate = geminiResponse.candidates.firstOrNull()
             ?: throw RuntimeException(
                 "Gemini returned no candidates. promptBlockReason=${geminiResponse.promptFeedback?.blockReason}"
@@ -102,11 +98,10 @@ class GeminiClient(
             )
         }
 
-        // 6. Extract text, filtering out "thought" parts
         val text = candidate.content
             ?.parts
             ?.asSequence()
-            ?.filterNot { it.thought == true }
+            ?.filterNot { it.thought }
             ?.mapNotNull { it.text }
             ?.joinToString(separator = "")
             ?.trim()
