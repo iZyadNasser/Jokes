@@ -7,13 +7,34 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
+import org.springframework.beans.factory.DisposableBean
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.ExecutionException
 
 @Component
 class GeminiClient(
     private val restClient: RestClient,
     private val properties: GeminiProperties,
     private val objectMapper: ObjectMapper
-) : LlmClient {
+) : LlmClient, DisposableBean {
+
+    private val executorService: ExecutorService = Executors.newCachedThreadPool()
+
+    override fun destroy() {
+        executorService.shutdown()
+        try {
+            if (!executorService.awaitTermination(2, TimeUnit.SECONDS)) {
+                executorService.shutdownNow()
+            }
+        } catch (_: InterruptedException) {
+            executorService.shutdownNow()
+            Thread.currentThread().interrupt()
+        }
+    }
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -30,10 +51,23 @@ class GeminiClient(
 
         var lastException: Exception? = null
 
-        for (model in models) {
+        for ((index, model) in models.withIndex()) {
+            val isLast = index == models.lastIndex
             try {
                 logger.info("Trying Gemini model: {}", model)
-                val joke = callGemini(model, prompt)
+                val joke = if (isLast) {
+                    callGemini(model, prompt)
+                } else {
+                    val future = CompletableFuture.supplyAsync({ callGemini(model, prompt) }, executorService)
+                    try {
+                        future.get(properties.timeoutSeconds, TimeUnit.SECONDS)
+                    } catch (ex: ExecutionException) {
+                        throw ex.cause ?: ex
+                    } catch (ex: TimeoutException) {
+                        future.cancel(true)
+                        throw RuntimeException("Gemini model $model timed out after ${properties.timeoutSeconds} seconds", ex)
+                    }
+                }
                 logger.info("Success using model: {}", model)
                 logger.info("Generated joke: {}", joke)
                 return joke

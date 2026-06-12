@@ -8,5 +8,6 @@ data class GeminiProperties(
     var baseUrl: String = "",
     var primaryModel: String = "",
     var secondaryModel: String = "",
-    var lastResortModel: String = ""
+    var lastResortModel: String = "",
+    var timeoutSeconds: Long = 5
 )
