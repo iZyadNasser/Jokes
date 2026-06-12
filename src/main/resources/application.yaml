@@ -6,7 +6,7 @@ server:
   port: ${PORT:8080}
 
 llm:
-  provider: ${LLM_PROVIDER:groq}
+  provider: ${LLM_PROVIDER:gemini}
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
